@@ -7,22 +7,52 @@ Ghost is a free, open, simple blogging platform that's available to anyone who w
 
 Visit the project's website at [http://ghost.org](http://ghost.org)!
 
-## Community
+This quickstart allows to run Ghost on Redhats Platform-as-a-Service [Openshift Online](https://www.openshift.com/products/online "Openshift Online")
 
-Keep track of Ghost development and Ghost community activity.
+##Get an Account
 
-* Follow Ghost on [Twitter](http://twitter.com/TryGhost), [Facebook](http://facebook.com/tryghostapp) and [Google+](https://plus.google.com/114465948129362706086).
-* Read and subscribe to the [The Official Ghost Blog](http://blog.ghost.org).
-* Chat with Ghost developers on IRC. We're on `irc.freenode.net`, in the `#Ghost` channel.
+If you don’t already have an OpenShift account, head on over to the website and signup. It is completely free and Red Hat gives every user three free Gears on which to run your applications.
 
+This client requires a command shell with a working `git` command and the OpenShift Client tools. These tools, known as `rhc` are built and packaged using the Ruby programming language. They allow you to manage your gears and applications from the commandline. The installation of these tools is explained [here](https://www.openshift.com/developers/rhc-client-tools-install).
 
-## Copyright & License
+##Creating your Gear
 
-Copyright (C) 2013 The Ghost Foundation - Released under the MIT Lincense.
+For Ghost you will require a nodejs-0.10 gear with installed MySQL. You can easily set this up with rhc by doing:
 
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+    rhc app create %appname% nodejs-0.10
+    rhc cartridge add mysql-5.1 -a %appname%
 
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+Here %appname% is a name choosen by you for your new blog. rhc will have created your app now and cloned the git repository into a subfolder named `%appname%`.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+##Adding the Quickstart
+
+The last thing you need to do is add the code of this repository to yours.
+
+    cd %appname%
+    git remote add upstream -m master git@github.com:Laures/ghost-openshift-quickstart.git 
+    git pull -s recursive -X theirs upstream master
+    git push
+
+Congratulation. With this push openshift will start your Ghost blog automaticly and store all your entries in the MySQL database.
+
+##Accessing your blog
+
+You can access your blog by visiting the URL of your gear (`%appname%-%namespace%.rhcloud.com`). 
+
+##Changes done to Ghost
+
+To get ghost to run on openshift, some changes had to be done to the project:
+
+###Initial Configuration
+
+Openshift offers configuration helpers and also expects hosted applications in certain ways. Because of that ghost is by default configured with the help of environment variables provided by openshift.
+
+Pre-set values contain:
+
+- the blog url
+- ip and port of the http listener (required by openshift)
+- connection to the MySQL database (required by openshift)
+
+###Application Entry Point
+
+Openshift expects the entry-point into a node application to be the server.js so the original index.js was renamed accordingly.
