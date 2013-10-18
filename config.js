@@ -8,7 +8,7 @@ config = {
     // ### Development **(default)**
     development: {
         // The url to use when providing links to the site, E.g. in RSS and email.
-        url: 'http://my-ghost-blog.com',
+        url: process.env.OPENSHIFT_APP_DNS,
 
         // Example mail config
         // Visit http://docs.ghost.org/mail for instructions
@@ -26,11 +26,20 @@ config = {
         // ```
 
         database: {
-            client: 'sqlite3',
+            // client: 'sqlite3',
+            // connection: {
+            //     filename: path.join(__dirname, '/content/data/ghost-dev.db')
+            // },
+            // debug: false
+			client: 'mysql',
             connection: {
-                filename: path.join(__dirname, '/content/data/ghost-dev.db')
-            },
-            debug: false
+                    host: process.env.OPENSHIFT_MYSQL_DB_HOST ,
+					port: process.env.OPENSHIFT_MYSQL_DB_PORT ,
+                    user: process.env.OPENSHIFT_MYSQL_DB_USERNAME ,
+                    password: process.env.OPENSHIFT_MYSQL_DB_PASSWORD ,
+                    database: process.env.OPENSHIFT_APP_NAME ,
+                    charset: 'utf8'
+            }
         },
         server: {
             // Host to be passed to node's `net.Server#listen()`
