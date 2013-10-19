@@ -31,10 +31,10 @@ config = {
             //     filename: path.join(__dirname, '/content/data/ghost-dev.db')
             // },
             // debug: false
-			client: 'mysql',
+            client: 'mysql',
             connection: {
                     host: process.env.OPENSHIFT_MYSQL_DB_HOST ,
-					port: process.env.OPENSHIFT_MYSQL_DB_PORT ,
+                    port: process.env.OPENSHIFT_MYSQL_DB_PORT ,
                     user: process.env.OPENSHIFT_MYSQL_DB_USERNAME ,
                     password: process.env.OPENSHIFT_MYSQL_DB_PASSWORD ,
                     database: process.env.OPENSHIFT_APP_NAME ,
