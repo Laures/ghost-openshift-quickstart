@@ -1,0 +1,38 @@
+{{!< default}}
+
+{{! The comment above "< default" means - insert everything in this file into
+    the {body} of the default.hbs template, which contains our header/footer. }}
+
+
+	{{#foreach posts}}
+	
+            <!-- START POST WRAP-->
+            <div class="posts">
+			
+                <section class="post">
+                    <header class="post-header">
+                        <img class="post-avatar" alt="Author avatar" src="{{author.image}}" height="48" width="48">
+
+                        <h2 class="post-title"><a href="{{url}}">{{{title}}}</a></h2>
+
+                        <p class="post-meta">
+                            By <span class="post-author">{{author.name}}</span> {{#if tags}}&ndash; tagged <span class="post-category">{{tags}}</span>{{/if}}
+							<br />
+							<time datetime="{{date format='YYYY-MM-DD'}}">{{date format="MMM DD YYYY"}}</time>
+                        </p>
+                    </header>
+
+                    <div class="post-description">
+                        <p>
+                            {{content words="0"}} {{excerpt}}
+                        </p>
+                    </div>
+                </section>
+				<hr />
+            </div>
+			<!-- END POST WRAP-->
+	
+	{{/foreach}}
+	<div class="pagination">
+	{{pagination}}
+	</div>

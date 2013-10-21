@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+    {{! Document Settings }}
+    <meta http-equiv="Content-Type" content="text/html" charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+
+    {{! Page Meta }}
+    <title>{{meta_title}}</title>
+    <meta name="description" content="{{meta_description}}" />
+
+    <meta name="HandheldFriendly" content="True" />
+    <meta name="MobileOptimized" content="320" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	
+	    {{! Styles'n'Scripts }}
+		<link rel="stylesheet" href="{{@blog.url}}/assets/css/pure-min.css">
+		<link rel="stylesheet" href="{{@blog.url}}/assets/css/layout.css">
+
+    {{! Ghost outputs important style and meta data with this tag }}
+    {{ghost_head}}
+</head>
+<body>
+
+
+<!-- START MAIN CONTAINER -->
+<div class="pure-g-r" id="layout">
+
+	<!-- START LOGO ETC -->
+    <div class="sidebar pure-u" {{#if @blog.cover}}style="background-image: url({{@blog.cover}})"{{/if}}>
+        <header class="header">
+            <hgroup>	
+				{{#if @blog.logo}}<a href="{{@blog.url}}"><img class="logo" src="{{@blog.logo}}" /></a>{{/if}}
+                <h1 class="brand-title">{{@blog.title}}</h1>
+                <h2 class="brand-tagline">{{@blog.description}}</h2>
+            </hgroup>
+			
+            <nav class="nav">
+                <ul class="nav-list">
+                    <li class="nav-item">
+                        <a class="pure-button" href="http://madeforghost.com/" target="_blank">MADE FOR GHOST</a>
+                    </li>
+					<li class="nav-item">
+                        <a class="pure-button" href="https://twitter.com/madeforghost" target="_blank">TWITTER</a>
+                    </li>
+                </ul>
+            </nav>
+			
+        </header>
+    </div>
+	<!-- END LOGO ETC. -->
+
+	<!-- START CONTENT CONTAINER -->
+    <div class="pure-u-1">
+		<!-- START CONTENT CONTAINER INNER -->
+        <div class="content">
+	
+	
+			{{! Everything else gets inserted here }}
+			{{{body}}}
+	
+	
+			<footer class="footer">
+                <div class="pure-menu pure-menu-horizontal pure-menu-open">
+                    <ul>
+                        <li><a href="http://madeforghost.com/">About</a></li>
+                        <li><a href="https://twitter.com/madeforghost">Twitter</a></li>
+                    </ul>
+                </div>
+            </footer>
+        </div>
+		<!-- END CONTENT CONTAINER INNER -->
+    </div>
+	<!-- END CONTENT CONTAINER -->
+</div>
+<!-- END MAIN CONTAINER -->
+
+    {{! Ghost outputs important scripts and data with this tag }}
+    {{ghost_foot}}
+
+    {{! JS file for YUI }}
+    <script src="{{@blog.url}}/assets/js/yui-min.js"></script>
+
+	
+</body>
+</html>
