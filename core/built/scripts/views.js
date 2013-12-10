@@ -202,6 +202,9 @@
             if (self.className.indexOf('notification-persistent') !== -1) {
                 $.ajax({
                     type: "DELETE",
+                    headers: {
+                        'X-CSRF-Token': $("meta[name='csrf-param']").attr('content')
+                    },
                     url: '/api/v0.1/notifications/' + $(self).find('.close').data('id')
                 }).done(function (result) {
                     bbSelf.$el.slideUp(250, function () {
@@ -231,6 +234,9 @@
                 bbSelf = this;
             $.ajax({
                 type: "DELETE",
+                headers: {
+                    'X-CSRF-Token': $("meta[name='csrf-param']").attr('content')
+                },
                 url: '/api/v0.1/notifications/' + $(self).data('id')
             }).done(function (result) {
                 var height = bbSelf.$('.js-notification').outerHeight(true),
@@ -419,7 +425,7 @@
 
         showNext: function () {
             if (this.isLoading) { return; }
-            var id = this.collection.at(0).id;
+            var id = this.collection.at(0) ? this.collection.at(0).id : false;
             if (id) {
                 Backbone.trigger('blog:activeItem', id);
             }
@@ -461,6 +467,8 @@
             this.isLoading = true;
 
             this.collection.fetch({
+                update: true,
+                remove: false,
                 data: {
                     status: 'all',
                     page: (self.collection.currentPage + 1),
@@ -1605,6 +1613,9 @@
                 $.ajax({
                     url: '/ghost/signin/',
                     type: 'POST',
+                    headers: {
+                        'X-CSRF-Token': $("meta[name='csrf-param']").attr('content')
+                    },
                     data: {
                         email: email,
                         password: password,
@@ -1659,6 +1670,9 @@
                 $.ajax({
                     url: '/ghost/signup/',
                     type: 'POST',
+                    headers: {
+                        'X-CSRF-Token': $("meta[name='csrf-param']").attr('content')
+                    },
                     data: {
                         name: name,
                         email: email,
@@ -1708,6 +1722,9 @@
                 $.ajax({
                     url: '/ghost/forgotten/',
                     type: 'POST',
+                    headers: {
+                        'X-CSRF-Token': $("meta[name='csrf-param']").attr('content')
+                    },
                     data: {
                         email: email
                     },
@@ -2129,8 +2146,8 @@
             var self = this, upload = new Ghost.Models.uploadModal({'key': key, 'src': src, 'accept': {
                 func: function () { // The function called on acceptance
                     var data = {};
-                    if (this.$('#uploadurl').val()) {
-                        data[key] = this.$('#uploadurl').val();
+                    if (this.$('.js-upload-url').val()) {
+                        data[key] = this.$('.js-upload-url').val();
                     } else {
                         data[key] = this.$('.js-upload-target').attr('src');
                     }
@@ -2188,8 +2205,8 @@
             var self = this, upload = new Ghost.Models.uploadModal({'key': key, 'src': src, 'accept': {
                 func: function () { // The function called on acceptance
                     var data = {};
-                    if (this.$('#uploadurl').val()) {
-                        data[key] = this.$('#uploadurl').val();
+                    if (this.$('.js-upload-url').val()) {
+                        data[key] = this.$('.js-upload-url').val();
                     } else {
                         data[key] = this.$('.js-upload-target').attr('src');
                     }
@@ -2276,6 +2293,9 @@
                 $.ajax({
                     url: '/ghost/changepw/',
                     type: 'POST',
+                    headers: {
+                        'X-CSRF-Token': $("meta[name='csrf-param']").attr('content')
+                    },
                     data: {
                         password: oldPassword,
                         newpassword: newPassword,

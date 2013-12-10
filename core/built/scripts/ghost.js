@@ -250,6 +250,9 @@ u[o]&&(delete u[o],c?delete n[l]:typeof n.removeAttribute!==i?n.removeAttribute(
 
                 $dropzone.find('.js-fileupload').fileupload().fileupload("option", {
                     url: '/ghost/upload/',
+                    headers: {
+                        'X-CSRF-Token': $("meta[name='csrf-param']").attr('content')
+                    },
                     add: function (e, data) {
                         $dropzone.find('.js-fileupload').removeClass('right');
                         $dropzone.find('.js-url, button.centre').remove();
@@ -16484,6 +16487,16 @@ if (typeof define !== 'undefined' && define.amd) {
 
     _.extend(Ghost, Backbone.Events);
 
+    Backbone.oldsync = Backbone.sync;
+    // override original sync method to make header request contain csrf token
+    Backbone.sync = function (method, model, options, error) {
+        options.beforeSend = function (xhr) {
+            xhr.setRequestHeader('X-CSRF-Token', $("meta[name='csrf-param']").attr('content'));
+        };
+        /* call the old sync method */
+        return Backbone.oldsync(method, model, options, error);
+    };
+
     Ghost.init = function () {
         Ghost.router = new Ghost.Router();
 
@@ -17262,14 +17275,14 @@ function program5(depth0,data) {
   if (stack1 = helpers.name) { stack1 = stack1.call(depth0, {hash:{},data:data}); }
   else { stack1 = depth0.name; stack1 = typeof stack1 === functionType ? stack1.apply(depth0) : stack1; }
   buffer += escapeExpression(stack1)
-    + "'s Cover Image\"/>\n        <button class=\"edit-cover-image js-modal-cover\">Change Cover</button>\n    </header>\n\n    <form class=\"user-profile\" novalidate=\"novalidate\">\n\n        <fieldset class=\"user-details-top\">\n\n            <figure class=\"user-image\">\n                <a id=\"user-image\" class=\"img\" ";
+    + "'s Cover Image\"/>\n        <a class=\"edit-cover-image js-modal-cover button\" href=\"#\">Change Cover</a>\n    </header>\n\n    <form class=\"user-profile\" novalidate=\"novalidate\">\n\n        <fieldset class=\"user-details-top\">\n\n            <figure class=\"user-image\">\n                <div id=\"user-image\" class=\"img\" ";
   stack1 = helpers['if'].call(depth0, depth0.image, {hash:{},inverse:self.noop,fn:self.program(5, program5, data),data:data});
   if(stack1 || stack1 === 0) { buffer += stack1; }
   buffer += " href=\"#\"><span class=\"hidden\">";
   if (stack1 = helpers.name) { stack1 = stack1.call(depth0, {hash:{},data:data}); }
   else { stack1 = depth0.name; stack1 = typeof stack1 === functionType ? stack1.apply(depth0) : stack1; }
   buffer += escapeExpression(stack1)
-    + "'s Picture</span></a>\n                <button class=\"edit-user-image js-modal-image\">Edit Picture</button>\n            </figure>\n\n            <div class=\"form-group\">\n                <label for=\"user-name\" class=\"hidden\">Full Name</label>\n                <input type=\"url\" value=\"";
+    + "'s Picture</span></div>\n                <a href=\"#\" class=\"edit-user-image js-modal-image\">Edit Picture</a>\n            </figure>\n\n            <div class=\"form-group\">\n                <label for=\"user-name\" class=\"hidden\">Full Name</label>\n                <input type=\"url\" value=\"";
   if (stack1 = helpers.name) { stack1 = stack1.call(depth0, {hash:{},data:data}); }
   else { stack1 = depth0.name; stack1 = typeof stack1 === functionType ? stack1.apply(depth0) : stack1; }
   buffer += escapeExpression(stack1)
@@ -17697,6 +17710,9 @@ helpers = this.merge(helpers, Handlebars.helpers); data = data || {};
             if (self.className.indexOf('notification-persistent') !== -1) {
                 $.ajax({
                     type: "DELETE",
+                    headers: {
+                        'X-CSRF-Token': $("meta[name='csrf-param']").attr('content')
+                    },
                     url: '/api/v0.1/notifications/' + $(self).find('.close').data('id')
                 }).done(function (result) {
                     bbSelf.$el.slideUp(250, function () {
@@ -17726,6 +17742,9 @@ helpers = this.merge(helpers, Handlebars.helpers); data = data || {};
                 bbSelf = this;
             $.ajax({
                 type: "DELETE",
+                headers: {
+                    'X-CSRF-Token': $("meta[name='csrf-param']").attr('content')
+                },
                 url: '/api/v0.1/notifications/' + $(self).data('id')
             }).done(function (result) {
                 var height = bbSelf.$('.js-notification').outerHeight(true),
@@ -17914,7 +17933,7 @@ helpers = this.merge(helpers, Handlebars.helpers); data = data || {};
 
         showNext: function () {
             if (this.isLoading) { return; }
-            var id = this.collection.at(0).id;
+            var id = this.collection.at(0) ? this.collection.at(0).id : false;
             if (id) {
                 Backbone.trigger('blog:activeItem', id);
             }
@@ -17956,6 +17975,8 @@ helpers = this.merge(helpers, Handlebars.helpers); data = data || {};
             this.isLoading = true;
 
             this.collection.fetch({
+                update: true,
+                remove: false,
                 data: {
                     status: 'all',
                     page: (self.collection.currentPage + 1),
@@ -19100,6 +19121,9 @@ helpers = this.merge(helpers, Handlebars.helpers); data = data || {};
                 $.ajax({
                     url: '/ghost/signin/',
                     type: 'POST',
+                    headers: {
+                        'X-CSRF-Token': $("meta[name='csrf-param']").attr('content')
+                    },
                     data: {
                         email: email,
                         password: password,
@@ -19154,6 +19178,9 @@ helpers = this.merge(helpers, Handlebars.helpers); data = data || {};
                 $.ajax({
                     url: '/ghost/signup/',
                     type: 'POST',
+                    headers: {
+                        'X-CSRF-Token': $("meta[name='csrf-param']").attr('content')
+                    },
                     data: {
                         name: name,
                         email: email,
@@ -19203,6 +19230,9 @@ helpers = this.merge(helpers, Handlebars.helpers); data = data || {};
                 $.ajax({
                     url: '/ghost/forgotten/',
                     type: 'POST',
+                    headers: {
+                        'X-CSRF-Token': $("meta[name='csrf-param']").attr('content')
+                    },
                     data: {
                         email: email
                     },
@@ -19624,8 +19654,8 @@ helpers = this.merge(helpers, Handlebars.helpers); data = data || {};
             var self = this, upload = new Ghost.Models.uploadModal({'key': key, 'src': src, 'accept': {
                 func: function () { // The function called on acceptance
                     var data = {};
-                    if (this.$('#uploadurl').val()) {
-                        data[key] = this.$('#uploadurl').val();
+                    if (this.$('.js-upload-url').val()) {
+                        data[key] = this.$('.js-upload-url').val();
                     } else {
                         data[key] = this.$('.js-upload-target').attr('src');
                     }
@@ -19683,8 +19713,8 @@ helpers = this.merge(helpers, Handlebars.helpers); data = data || {};
             var self = this, upload = new Ghost.Models.uploadModal({'key': key, 'src': src, 'accept': {
                 func: function () { // The function called on acceptance
                     var data = {};
-                    if (this.$('#uploadurl').val()) {
-                        data[key] = this.$('#uploadurl').val();
+                    if (this.$('.js-upload-url').val()) {
+                        data[key] = this.$('.js-upload-url').val();
                     } else {
                         data[key] = this.$('.js-upload-target').attr('src');
                     }
@@ -19771,6 +19801,9 @@ helpers = this.merge(helpers, Handlebars.helpers); data = data || {};
                 $.ajax({
                     url: '/ghost/changepw/',
                     type: 'POST',
+                    headers: {
+                        'X-CSRF-Token': $("meta[name='csrf-param']").attr('content')
+                    },
                     data: {
                         password: oldPassword,
                         newpassword: newPassword,

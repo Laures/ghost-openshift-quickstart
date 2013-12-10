@@ -250,6 +250,9 @@ u[o]&&(delete u[o],c?delete n[l]:typeof n.removeAttribute!==i?n.removeAttribute(
 
                 $dropzone.find('.js-fileupload').fileupload().fileupload("option", {
                     url: '/ghost/upload/',
+                    headers: {
+                        'X-CSRF-Token': $("meta[name='csrf-param']").attr('content')
+                    },
                     add: function (e, data) {
                         $dropzone.find('.js-fileupload').removeClass('right');
                         $dropzone.find('.js-url, button.centre').remove();
