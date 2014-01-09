@@ -56,3 +56,6 @@ Pre-set values contain:
 ###Application Entry Point
 
 Openshift expects the entry-point into a node application to be the server.js so the original index.js was renamed accordingly.
+
+[![Bitdeli Badge](https://d2weczhvl823v0.cloudfront.net/Laures/ghost-openshift-quickstart/trend.png)](https://bitdeli.com/free "Bitdeli Badge")
+
