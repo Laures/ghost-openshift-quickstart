@@ -29,7 +29,7 @@ Here %appname% is a name choosen by you for your new blog. rhc will have created
 The last thing you need to do is add the code of this repository to yours.
 
     cd %appname%
-    git remote add upstream -m master git@github.com:Laures/ghost-openshift-quickstart.git 
+    git remote add upstream -m master https://github.com/Laures/ghost-openshift-quickstart.git 
     git pull -s recursive -X theirs upstream master
     git push
 
