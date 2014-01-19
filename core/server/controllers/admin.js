@@ -1,17 +1,13 @@
-var Ghost         = require('../../ghost'),
-    dataExport    = require('../data/export'),
-    dataImport    = require('../data/import'),
+var config        = require('../config'),
     _             = require('underscore'),
-    fs            = require('fs-extra'),
     path          = require('path'),
     when          = require('when'),
-    nodefn        = require('when/node/function'),
     api           = require('../api'),
-    moment        = require('moment'),
+    mailer        = require('../mail'),
     errors        = require('../errorHandling'),
+    storage       = require('../storage'),
+    updateCheck   = require('../update-check'),
 
-    ghost         = new Ghost(),
-    dataProvider  = ghost.dataProvider,
     adminNavbar,
     adminControllers,
     loginSecurity = [];
@@ -47,76 +43,29 @@ function setSelected(list, name) {
     return list;
 }
 
-// TODO: this could be a separate module
-function getUniqueFileName(dir, name, ext, i, done) {
-    var filename,
-        append = '';
-
-    if (i) {
-        append = '-' + i;
-    }
-
-    filename = path.join(dir, name + append + ext);
-    fs.exists(filename, function (exists) {
-        if (exists) {
-            setImmediate(function () {
-                i = i + 1;
-                return getUniqueFileName(dir, name, ext, i, done);
-            });
-        } else {
-            return done(filename);
-        }
-    });
-}
-
 adminControllers = {
     'uploader': function (req, res) {
-
-        var currentDate = moment(),
-            month = currentDate.format('MMM'),
-            year =  currentDate.format('YYYY'),
-            tmp_path = req.files.uploadimage.path,
-            dir = path.join('content/images', year, month),
+        var type = req.files.uploadimage.type,
             ext = path.extname(req.files.uploadimage.name).toLowerCase(),
-            type = req.files.uploadimage.type,
-            basename = path.basename(req.files.uploadimage.name, ext).replace(/[\W]/gi, '_');
+            store = storage.get_storage();
 
-        function renameFile(target_path) {
-            // adds directories recursively
-            fs.mkdirs(dir, function (err) {
-                if (err) {
-                    return errors.logError(err);
-                }
-
-                fs.copy(tmp_path, target_path, function (err) {
-                    if (err) {
-                        return errors.logError(err);
-                    }
-
-                    fs.unlink(tmp_path, function (e) {
-                        if (err) {
-                            return errors.logError(err);
-                        }
-
-                        // the src for the image must be in URI format, not a file system path, which in Windows uses \
-                        var src = path.join('/', target_path).replace(new RegExp('\\' + path.sep, 'g'), '/');
-                        return res.send(src);
-                    });
-                });
-            });
+        if ((type !== 'image/jpeg' && type !== 'image/png' && type !== 'image/gif' && type !== 'image/svg+xml')
+                || (ext !== '.jpg' && ext !== '.jpeg' && ext !== '.png' && ext !== '.gif' && ext !== '.svg' && ext !== '.svgz')) {
+            return res.send(415, 'Unsupported Media Type');
         }
 
-        //limit uploads to type && extension
-        if ((type === 'image/jpeg' || type === 'image/png' || type === 'image/gif')
-                && (ext === '.jpg' || ext === '.jpeg' || ext === '.png' || ext === '.gif')) {
-            getUniqueFileName(dir, basename, ext, null, function (filename) {
-                renameFile(filename);
+        store
+            .save(req.files.uploadimage)
+            .then(function (url) {
+                return res.send(url);
+            })
+            .otherwise(function (e) {
+                errors.logError(e);
+                return res.send(500, e.message);
             });
-        } else {
-            res.send(403, 'Invalid file type');
-        }
     },
     'login': function (req, res) {
+        /*jslint unparam:true*/
         res.render('login', {
             bodyClass: 'ghost-login',
             hideNavbar: true,
@@ -125,20 +74,33 @@ adminControllers = {
     },
     'auth': function (req, res) {
         var currentTime = process.hrtime()[0],
+            remoteAddress = req.connection.remoteAddress,
             denied = '';
         loginSecurity = _.filter(loginSecurity, function (ipTime) {
             return (ipTime.time + 2 > currentTime);
         });
         denied = _.find(loginSecurity, function (ipTime) {
-            return (ipTime.ip === req.connection.remoteAddress);
+            return (ipTime.ip === remoteAddress);
         });
 
         if (!denied) {
-            loginSecurity.push({ip: req.connection.remoteAddress, time: process.hrtime()[0]});
+            loginSecurity.push({ip: remoteAddress, time: currentTime});
             api.users.check({email: req.body.email, pw: req.body.password}).then(function (user) {
-                req.session.user = user.id;
-                res.json(200, {redirect: req.body.redirect ? '/ghost/'
-                    + decodeURIComponent(req.body.redirect) : '/ghost/'});
+                req.session.regenerate(function (err) {
+                    if (!err) {
+                        req.session.user = user.id;
+                        var redirect = config.paths().subdir + '/ghost/';
+                        if (req.body.redirect) {
+                            redirect += decodeURIComponent(req.body.redirect);
+                        }
+                        // If this IP address successfully logins we
+                        // can remove it from the array of failed login attempts.
+                        loginSecurity = _.reject(loginSecurity, function (ipTime) {
+                            return ipTime.ip === remoteAddress;
+                        });
+                        res.json(200, {redirect: redirect});
+                    }
+                });
             }, function (error) {
                 res.json(401, {error: error.message});
             });
@@ -146,8 +108,8 @@ adminControllers = {
             res.json(401, {error: 'Slow down, there are way too many login attempts!'});
         }
     },
-    changepw: function (req, res) {
-        api.users.changePassword({
+    'changepw': function (req, res) {
+        return api.users.changePassword({
             currentUser: req.session.user,
             oldpw: req.body.password,
             newpw: req.body.newpassword,
@@ -157,16 +119,15 @@ adminControllers = {
         }, function (error) {
             res.send(401, {error: error.message});
         });
-
     },
     'signup': function (req, res) {
+        /*jslint unparam:true*/
         res.render('signup', {
             bodyClass: 'ghost-signup',
             hideNavbar: true,
             adminNav: setSelected(adminNavbar, 'login')
         });
     },
-
     'doRegister': function (req, res) {
         var name = req.body.name,
             email = req.body.email,
@@ -178,74 +139,163 @@ adminControllers = {
             password: password
         }).then(function (user) {
             api.settings.edit('email', email).then(function () {
-                if (req.session.user === undefined) {
-                    req.session.user = user.id;
-                }
-                res.json(200, {redirect: '/ghost/'});
+                var message = {
+                    to: email,
+                    subject: 'Your New Ghost Blog',
+                    html: '<p><strong>Hello!</strong></p>' +
+                          '<p>Good news! You\'ve successfully created a brand new Ghost blog over on ' + config().url + '</p>' +
+                          '<p>You can log in to your admin account with the following details:</p>' +
+                          '<p> Email Address: ' + email + '<br>' +
+                          'Password: The password you chose when you signed up</p>' +
+                          '<p>Keep this email somewhere safe for future reference, and have fun!</p>' +
+                          '<p>xoxo</p>' +
+                          '<p>Team Ghost<br>' +
+                          '<a href="https://ghost.org">https://ghost.org</a></p>'
+                };
+                mailer.send(message).otherwise(function (error) {
+                    errors.logError(
+                        error.message,
+                        "Unable to send welcome email, your blog will continue to function.",
+                        "Please see http://docs.ghost.org/mail/ for instructions on configuring email."
+                    );
+                });
+
+                req.session.regenerate(function (err) {
+                    if (!err) {
+                        if (req.session.user === undefined) {
+                            req.session.user = user.id;
+                        }
+                        res.json(200, {redirect: config.paths().subdir + '/ghost/'});
+                    }
+                });
             });
         }).otherwise(function (error) {
             res.json(401, {error: error.message});
         });
-
     },
-
     'forgotten': function (req, res) {
+        /*jslint unparam:true*/
         res.render('forgotten', {
             bodyClass: 'ghost-forgotten',
             hideNavbar: true,
             adminNav: setSelected(adminNavbar, 'login')
         });
     },
-
-    'resetPassword': function (req, res) {
+    'generateResetToken': function (req, res) {
         var email = req.body.email;
 
-        api.users.forgottenPassword(email).then(function (user) {
-            var message = {
+        api.users.generateResetToken(email).then(function (token) {
+            var siteLink = '<a href="' + config().url + '">' + config().url + '</a>',
+                resetUrl = config().url.replace(/\/$/, '') +  '/ghost/reset/' + token + '/',
+                resetLink = '<a href="' + resetUrl + '">' + resetUrl + '</a>',
+                message = {
                     to: email,
-                    subject: 'Your new password',
-                    html: "<p><strong>Hello!</strong></p>" +
-                          "<p>You've reset your password. Here's the new one: " + user.newPassword + "</p>" +
-                          "<p>Ghost <br/>" +
-                          '<a href="' + ghost.config().url + '">' +
-                           ghost.config().url + '</a></p>'
+                    subject: 'Reset Password',
+                    html: '<p><strong>Hello!</strong></p>' +
+                          '<p>A request has been made to reset the password on the site ' + siteLink + '.</p>' +
+                          '<p>Please follow the link below to reset your password:<br><br>' + resetLink + '</p>' +
+                          '<p>Ghost</p>'
                 };
 
-            return ghost.mail.send(message);
+            return mailer.send(message);
         }).then(function success() {
             var notification = {
                 type: 'success',
-                message: 'Your password was changed successfully. Check your email for details.',
+                message: 'Check your email for further instructions',
                 status: 'passive',
                 id: 'successresetpw'
             };
 
             return api.notifications.add(notification).then(function () {
-                res.json(200, {redirect: '/ghost/signin/'});
+                res.json(200, {redirect: config.paths().subdir + '/ghost/signin/'});
             });
 
         }, function failure(error) {
+            // TODO: This is kind of sketchy, depends on magic string error.message from Bookshelf.
+            // TODO: It's debatable whether we want to just tell the user we sent the email in this case or not, we are giving away sensitive info here.
+            if (error && error.message === 'EmptyResponse') {
+                error.message = "Invalid email address";
+            }
+
             res.json(401, {error: error.message});
-        }).otherwise(errors.logAndThrowError);
+        });
+    },
+    'reset': function (req, res) {
+        // Validate the request token
+        var token = req.params.token;
+
+        api.users.validateToken(token).then(function () {
+            // Render the reset form
+            res.render('reset', {
+                bodyClass: 'ghost-reset',
+                hideNavbar: true,
+                adminNav: setSelected(adminNavbar, 'reset')
+            });
+        }).otherwise(function (err) {
+            // Redirect to forgotten if invalid token
+            var notification = {
+                type: 'error',
+                message: 'Invalid or expired token',
+                status: 'persistent',
+                id: 'errorinvalidtoken'
+            };
+
+            errors.logError(err, 'admin.js', "Please check the provided token for validity and expiration.");
+
+            return api.notifications.add(notification).then(function () {
+                res.redirect(config.paths().subdir + '/ghost/forgotten');
+            });
+        });
+    },
+    'resetPassword': function (req, res) {
+        var token = req.params.token,
+            newPassword = req.param('newpassword'),
+            ne2Password = req.param('ne2password');
+
+        api.users.resetPassword(token, newPassword, ne2Password).then(function () {
+            var notification = {
+                type: 'success',
+                message: 'Password changed successfully.',
+                status: 'passive',
+                id: 'successresetpw'
+            };
+
+            return api.notifications.add(notification).then(function () {
+                res.json(200, {redirect: config.paths().subdir + '/ghost/signin/'});
+            });
+        }).otherwise(function (err) {
+            // TODO: Better error message if we can tell whether the passwords didn't match or something
+            res.json(401, {error: err.message});
+        });
     },
     'logout': function (req, res) {
-        req.session = null;
+        req.session.destroy();
+
         var notification = {
-            type: 'success',
-            message: 'You were successfully signed out',
-            status: 'passive',
-            id: 'successlogout'
-        };
+                type: 'success',
+                message: 'You were successfully signed out',
+                status: 'passive',
+                id: 'successlogout'
+            };
 
         return api.notifications.add(notification).then(function () {
-            res.redirect('/ghost/signin/');
+            res.redirect(config.paths().subdir + '/ghost/signin/');
         });
     },
     'index': function (req, res) {
-        res.render('content', {
-            bodyClass: 'manage',
-            adminNav: setSelected(adminNavbar, 'content')
-        });
+        /*jslint unparam:true*/
+        function renderIndex() {
+            res.render('content', {
+                bodyClass: 'manage',
+                adminNav: setSelected(adminNavbar, 'content')
+            });
+        }
+
+        when.join(
+            updateCheck(res),
+            when(renderIndex())
+        // an error here should just get logged
+        ).otherwise(errors.logError);
     },
     'editor': function (req, res) {
         if (req.params.id !== undefined) {
@@ -261,6 +311,7 @@ adminControllers = {
         }
     },
     'content': function (req, res) {
+        /*jslint unparam:true*/
         res.render('content', {
             bodyClass: 'manage',
             adminNav: setSelected(adminNavbar, 'content')
@@ -284,111 +335,11 @@ adminControllers = {
     },
     'debug': { /* ugly temporary stuff for managing the app before it's properly finished */
         index: function (req, res) {
+            /*jslint unparam:true*/
             res.render('debug', {
                 bodyClass: 'settings',
                 adminNav: setSelected(adminNavbar, 'settings')
             });
-        },
-        'export': function (req, res) {
-            return dataExport()
-                .then(function (exportedData) {
-                    // Save the exported data to the file system for download
-                    var fileName = path.resolve(__dirname + '/../../server/data/export/exported-' + (new Date().getTime()) + '.json');
-
-                    return nodefn.call(fs.writeFile, fileName, JSON.stringify(exportedData)).then(function () {
-                        return when(fileName);
-                    });
-                })
-                .then(function (exportedFilePath) {
-                    // Send the exported data file
-                    res.download(exportedFilePath, 'GhostData.json');
-                })
-                .otherwise(function (error) {
-                    // Notify of an error if it occurs
-                    var notification = {
-                        type: 'error',
-                        message: error.message || error,
-                        status: 'persistent',
-                        id: 'per-' + (ghost.notifications.length + 1)
-                    };
-
-                    return api.notifications.add(notification).then(function () {
-                        res.redirect('/ghost/debug/');
-                    });
-                });
-        },
-        'import': function (req, res) {
-            if (!req.files.importfile) {
-                // Notify of an error if it occurs
-                var notification = {
-                    type: 'error',
-                    message:  "Must select a file to import",
-                    status: 'persistent',
-                    id: 'per-' + (ghost.notifications.length + 1)
-                };
-
-                return api.notifications.add(notification).then(function () {
-                    res.redirect('/ghost/debug/');
-                });
-            }
-
-            // Get the current version for importing
-            api.settings.read({ key: 'databaseVersion' })
-                .then(function (setting) {
-                    return when(setting.value);
-                }, function () {
-                    return when('001');
-                })
-                .then(function (databaseVersion) {
-                    // Read the file contents
-                    return nodefn.call(fs.readFile, req.files.importfile.path)
-                        .then(function (fileContents) {
-                            var importData;
-
-                            // Parse the json data
-                            try {
-                                importData = JSON.parse(fileContents);
-                            } catch (e) {
-                                return when.reject(new Error("Failed to parse the import file"));
-                            }
-
-                            if (!importData.meta || !importData.meta.version) {
-                                return when.reject(new Error("Import data does not specify version"));
-                            }
-
-                            // Import for the current version
-                            return dataImport(databaseVersion, importData);
-                        });
-                })
-                .then(function importSuccess() {
-                    var notification = {
-                        type: 'success',
-                        message: "Data imported. Log in with the user details you imported",
-                        status: 'persistent',
-                        id: 'per-' + (ghost.notifications.length + 1)
-                    };
-
-                    return api.notifications.add(notification).then(function () {
-                        req.session = null;
-                        res.set({
-                            "X-Cache-Invalidate": "/*"
-                        });
-                        res.redirect('/ghost/signin/');
-                    });
-
-                }, function importFailure(error) {
-                    // Notify of an error if it occurs
-                    var notification = {
-                        type: 'error',
-                        message: error.message || error,
-                        status: 'persistent',
-                        id: 'per-' + (ghost.notifications.length + 1)
-                    };
-
-                    return api.notifications.add(notification).then(function () {
-                        res.redirect('/ghost/debug/');
-                    });
-                });
         }
     }
 };

@@ -1,4 +1,4 @@
-/*global Ghost, Backbone */
+/*global Ghost, Backbone, $ */
 (function () {
     'use strict';
     Ghost.Models.uploadModal = Backbone.Model.extend({
@@ -9,7 +9,8 @@
             style: ["wide"],
             animation: 'fade',
             afterRender: function () {
-                this.$('.js-drop-zone').upload();
+                var filestorage = $('#' + this.options.model.id).data('filestorage');
+                this.$('.js-drop-zone').upload({fileStorage: filestorage});
             },
             confirm: {
                 reject: {
@@ -30,6 +31,7 @@
             this.options.key = options.key;
             this.options.src = options.src;
             this.options.confirm.accept = options.accept;
+            this.options.acceptEncoding = options.acceptEncoding || 'image/*';
         }
     });
 

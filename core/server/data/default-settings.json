@@ -1,7 +1,16 @@
 {
     "core": {
         "databaseVersion": {
-            "defaultValue": "000"
+            "defaultValue": "001"
+        },
+        "dbHash": {
+            "defaultValue": null
+        },
+        "nextUpdateCheck": {
+            "defaultValue": null
+        },
+        "displayUpdateNotification": {
+            "defaultValue": false
         }
     },
     "blog": {
@@ -43,6 +52,14 @@
             "validations": {
                 "notNull": true,
                 "isIn": ["true", "false"]
+            }
+        },
+        "permalinks": {
+            "defaultValue": "/:slug/",
+            "validations": {
+                "is": "^(/:?[a-z]+){1,}/$",
+                "regex": "(:id|:slug)",
+                "notContains": "/ghost/"
             }
         }
     },

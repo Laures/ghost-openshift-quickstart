@@ -110,12 +110,9 @@
         afterRender: function () {
             this.$el.attr('id', this.id);
             this.$el.addClass('active');
-
-            this.$('input').iCheck({
-                checkboxClass: 'icheckbox_ghost'
-            });
         },
         saveSuccess: function (model, response, options) {
+            /*jslint unparam:true*/
             Ghost.notifications.clearEverything();
             // TODO: better messaging here?
             Ghost.notifications.addItem({
@@ -125,6 +122,7 @@
             });
         },
         saveError: function (model, xhr) {
+            /*jslint unparam:true*/
             Ghost.notifications.clearEverything();
             Ghost.notifications.addItem({
                 type: 'error',
@@ -159,7 +157,8 @@
                 title = this.$('#blog-title').val(),
                 description = this.$('#blog-description').val(),
                 email = this.$('#email-address').val(),
-                postsPerPage = this.$('#postsPerPage').val();
+                postsPerPage = this.$('#postsPerPage').val(),
+                permalinks = this.$('#permalinks').is(':checked') ? '/:year/:month/:day/:slug/' : '/:slug/';
 
             Ghost.Validate._errors = [];
             Ghost.Validate
@@ -174,6 +173,10 @@
             Ghost.Validate
                 .check(postsPerPage, {message: "Please use a number less than 1000", el: $('postsPerPage')})
                 .isInt().max(1000);
+            Ghost.Validate
+                .check(postsPerPage, {message: "Please use a number greater than 0", el: $('postsPerPage')})
+                .isInt().min(0);
+
 
             if (Ghost.Validate._errors.length > 0) {
                 Ghost.Validate.handleErrors();
@@ -183,7 +186,8 @@
                     description: description,
                     email: email,
                     postsPerPage: postsPerPage,
-                    activeTheme: this.$('#activeTheme').val()
+                    activeTheme: this.$('#activeTheme').val(),
+                    permalinks: permalinks
                 }, {
                     success: this.saveSuccess,
                     error: this.saveError
@@ -201,27 +205,28 @@
             this.showUpload('cover', settings.cover);
         },
         showUpload: function (key, src) {
-            var self = this, upload = new Ghost.Models.uploadModal({'key': key, 'src': src, 'accept': {
-                func: function () { // The function called on acceptance
-                    var data = {};
-                    if (this.$('.js-upload-url').val()) {
-                        data[key] = this.$('.js-upload-url').val();
-                    } else {
-                        data[key] = this.$('.js-upload-target').attr('src');
-                    }
+            var self = this,
+                upload = new Ghost.Models.uploadModal({'key': key, 'src': src, 'id': this.id, 'accept': {
+                    func: function () { // The function called on acceptance
+                        var data = {};
+                        if (this.$('.js-upload-url').val()) {
+                            data[key] = this.$('.js-upload-url').val();
+                        } else {
+                            data[key] = this.$('.js-upload-target').attr('src');
+                        }
 
-                    self.model.save(data, {
-                        success: self.saveSuccess,
-                        error: self.saveError
-                    }).then(function () {
-                        self.render();
-                    });
+                        self.model.save(data, {
+                            success: self.saveSuccess,
+                            error: self.saveError
+                        }).then(function () {
+                            self.saveSettings();
+                        });
 
-                    return true;
-                },
-                buttonClass: "button-save right",
-                text: "Save" // The accept button text
-            }});
+                        return true;
+                    },
+                    buttonClass: "button-save right",
+                    text: "Save" // The accept button text
+                }});
 
             this.addSubview(new Ghost.Views.Modal({
                 model: upload
@@ -230,6 +235,7 @@
         templateName: 'settings/general',
 
         afterRender: function () {
+            this.$('#permalinks').prop('checked', this.model.get('permalinks') === '/:slug/' ? false : true);
             this.$('.js-drop-zone').upload();
             Settings.Pane.prototype.afterRender.call(this);
         }
@@ -237,6 +243,8 @@
 
     // ### User profile
     Settings.user = Settings.Pane.extend({
+        templateName: 'settings/user-profile',
+
         id: 'user',
 
         options: {
@@ -247,7 +255,8 @@
             'click .button-save': 'saveUser',
             'click .button-change-password': 'changePassword',
             'click .js-modal-cover': 'showCover',
-            'click .js-modal-image': 'showImage'
+            'click .js-modal-image': 'showImage',
+            'keyup .user-profile': 'handleEnterKeyOnForm'
         },
         showCover: function (e) {
             e.preventDefault();
@@ -260,7 +269,7 @@
             this.showUpload('image', user.image);
         },
         showUpload: function (key, src) {
-            var self = this, upload = new Ghost.Models.uploadModal({'key': key, 'src': src, 'accept': {
+            var self = this, upload = new Ghost.Models.uploadModal({'key': key, 'src': src, 'id': this.id, 'accept': {
                 func: function () { // The function called on acceptance
                     var data = {};
                     if (this.$('.js-upload-url').val()) {
@@ -272,7 +281,7 @@
                         success: self.saveSuccess,
                         error: self.saveError
                     }).then(function () {
-                        self.render();
+                        self.saveUser();
                     });
                     return true;
                 },
@@ -285,6 +294,31 @@
             }));
         },
 
+        handleEnterKeyOnForm: function (ev) {
+            // Don't worry about it unless it's an enter key
+            if (ev.which !== 13) {
+                return;
+            }
+
+            var $target = $(ev.target);
+
+            if ($target.is("textarea")) {
+                // Allow enter key on user bio text area.
+                return;
+            }
+
+            if ($target.is('input[type=password]')) {
+                // Change password if on a password input
+                return this.changePassword(ev);
+            }
+
+            // Simulate clicking save otherwise
+            ev.preventDefault();
+
+            this.saveUser(ev);
+
+            return false;
+        },
 
         saveUser: function () {
             var self = this,
@@ -349,7 +383,7 @@
             } else {
 
                 $.ajax({
-                    url: '/ghost/changepw/',
+                    url: Ghost.paths.subdir + '/ghost/changepw/',
                     type: 'POST',
                     headers: {
                         'X-CSRF-Token': $("meta[name='csrf-param']").attr('content')
@@ -381,18 +415,18 @@
             }
         },
 
-        templateName: 'settings/user-profile',
-
         afterRender: function () {
             var self = this;
+
             Countable.live(document.getElementById('user-bio'), function (counter) {
+                var bioContainer = self.$('.bio-container .word-count');
                 if (counter.all > 180) {
-                    self.$('.bio-container .word-count').css({color: "#e25440"});
+                    bioContainer.css({color: "#e25440"});
                 } else {
-                    self.$('.bio-container .word-count').css({color: "#9E9D95"});
+                    bioContainer.css({color: "#9E9D95"});
                 }
 
-                self.$('.bio-container .word-count').text(200 - counter.all);
+                bioContainer.text(200 - counter.all);
 
             });
 

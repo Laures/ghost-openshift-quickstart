@@ -6,15 +6,19 @@
 
         initialize: function () {
             this.render();
-            $(".js-login-box").css({"opacity": 0}).animate({"opacity": 1}, 500, function () {
-                $("[name='email']").focus();
-            });
         },
 
         templateName: "login",
 
         events: {
             'submit #login': 'submitHandler'
+        },
+
+        afterRender: function () {
+            var self = this;
+            this.$el.css({"opacity": 0}).animate({"opacity": 1}, 500, function () {
+                self.$("[name='email']").focus();
+            });
         },
 
         submitHandler: function (event) {
@@ -31,7 +35,7 @@
                 Ghost.Validate.handleErrors();
             } else {
                 $.ajax({
-                    url: '/ghost/signin/',
+                    url: Ghost.paths.subdir + '/ghost/signin/',
                     type: 'POST',
                     headers: {
                         'X-CSRF-Token': $("meta[name='csrf-param']").attr('content')
@@ -45,6 +49,7 @@
                         window.location.href = msg.redirect;
                     },
                     error: function (xhr) {
+                        Ghost.notifications.clearEverything();
                         Ghost.notifications.addItem({
                             type: 'error',
                             message: Ghost.Views.Utils.getRequestErrorMessage(xhr),
@@ -60,9 +65,6 @@
 
         initialize: function () {
             this.render();
-            $(".js-signup-box").css({"opacity": 0}).animate({"opacity": 1}, 500, function () {
-                $("[name='name']").focus();
-            });
         },
 
         templateName: "signup",
@@ -71,11 +73,21 @@
             'submit #signup': 'submitHandler'
         },
 
+        afterRender: function () {
+            var self = this;
+
+            this.$el
+                .css({"opacity": 0})
+                .animate({"opacity": 1}, 500, function () {
+                    self.$("[name='name']").focus();
+                });
+        },
+
         submitHandler: function (event) {
             event.preventDefault();
-            var name = this.$el.find('.name').val(),
-                email = this.$el.find('.email').val(),
-                password = this.$el.find('.password').val();
+            var name = this.$('.name').val(),
+                email = this.$('.email').val(),
+                password = this.$('.password').val();
 
             // This is needed due to how error handling is done. If this is not here, there will not be a time
             // when there is no error.
@@ -88,7 +100,7 @@
                 Ghost.Validate.handleErrors();
             } else {
                 $.ajax({
-                    url: '/ghost/signup/',
+                    url: Ghost.paths.subdir + '/ghost/signup/',
                     type: 'POST',
                     headers: {
                         'X-CSRF-Token': $("meta[name='csrf-param']").attr('content')
@@ -102,6 +114,7 @@
                         window.location.href = msg.redirect;
                     },
                     error: function (xhr) {
+                        Ghost.notifications.clearEverything();
                         Ghost.notifications.addItem({
                             type: 'error',
                             message: Ghost.Views.Utils.getRequestErrorMessage(xhr),
@@ -117,15 +130,19 @@
 
         initialize: function () {
             this.render();
-            $(".js-forgotten-box").css({"opacity": 0}).animate({"opacity": 1}, 500, function () {
-                $("[name='email']").focus();
-            });
         },
 
         templateName: "forgotten",
 
         events: {
             'submit #forgotten': 'submitHandler'
+        },
+
+        afterRender: function () {
+            var self = this;
+            this.$el.css({"opacity": 0}).animate({"opacity": 1}, 500, function () {
+                self.$("[name='email']").focus();
+            });
         },
 
         submitHandler: function (event) {
@@ -140,7 +157,7 @@
                 Ghost.Validate.handleErrors();
             } else {
                 $.ajax({
-                    url: '/ghost/forgotten/',
+                    url: Ghost.paths.subdir + '/ghost/forgotten/',
                     type: 'POST',
                     headers: {
                         'X-CSRF-Token': $("meta[name='csrf-param']").attr('content')
@@ -153,6 +170,7 @@
                         window.location.href = msg.redirect;
                     },
                     error: function (xhr) {
+                        Ghost.notifications.clearEverything();
                         Ghost.notifications.addItem({
                             type: 'error',
                             message: Ghost.Views.Utils.getRequestErrorMessage(xhr),
@@ -161,6 +179,76 @@
                     }
                 });
             }
+        }
+    });
+
+    Ghost.Views.ResetPassword = Ghost.View.extend({
+        templateName: 'reset',
+
+        events: {
+            'submit #reset': 'submitHandler'
+        },
+
+        initialize: function (attrs) {
+            attrs = attrs || {};
+
+            this.token = attrs.token;
+
+            this.render();
+        },
+
+        afterRender: function () {
+            var self = this;
+            this.$el.css({"opacity": 0}).animate({"opacity": 1}, 500, function () {
+                self.$("[name='newpassword']").focus();
+            });
+        },
+
+        submitHandler: function (ev) {
+            ev.preventDefault();
+
+            var self = this,
+                newPassword = this.$('input[name="newpassword"]').val(),
+                ne2Password = this.$('input[name="ne2password"]').val();
+
+            if (newPassword !== ne2Password) {
+                Ghost.notifications.addItem({
+                    type: 'error',
+                    message: "Your passwords do not match.",
+                    status: 'passive'
+                });
+
+                return;
+            }
+
+            this.$('input, button').prop('disabled', true);
+
+            $.ajax({
+                url: Ghost.paths.subdir + '/ghost/reset/' + this.token + '/',
+                type: 'POST',
+                headers: {
+                    'X-CSRF-Token': $("meta[name='csrf-param']").attr('content')
+                },
+                data: {
+                    newpassword: newPassword,
+                    ne2password: ne2Password
+                },
+                success: function (msg) {
+                    window.location.href = msg.redirect;
+                },
+                error: function (xhr) {
+                    self.$('input, button').prop('disabled', false);
+
+                    Ghost.notifications.clearEverything();
+                    Ghost.notifications.addItem({
+                        type: 'error',
+                        message: Ghost.Views.Utils.getRequestErrorMessage(xhr),
+                        status: 'passive'
+                    });
+                }
+            });
+
+            return false;
         }
     });
 }());

@@ -10,6 +10,7 @@
         events: {
             'keyup [data-input-behaviour="tag"]': 'handleKeyup',
             'keydown [data-input-behaviour="tag"]': 'handleKeydown',
+            'keypress [data-input-behaviour="tag"]': 'handleKeypress',
             'click ul.suggestions li': 'handleSuggestionClick',
             'click .tags .tag': 'handleTagClick',
             'click .tag-label': 'mobileTags'
@@ -20,7 +21,6 @@
             DOWN: 40,
             ESC: 27,
             ENTER: 13,
-            COMMA: 188,
             BACKSPACE: 8
         },
 
@@ -84,7 +84,7 @@
                     });
                 }
 
-                $(".tag-input").one("blur", function (e) {
+                $(".tag-input").one("blur", function () {
 
                     if (publishBar.hasClass("extended-tags") && !$(':hover').last().hasClass("tag")) {
                         publishBar.css("top", "auto").animate({"height": "40px"}, 300, "swing", function () {
@@ -101,7 +101,6 @@
         },
 
         showSuggestions: function ($target, _searchTerm) {
-            this.$suggestions.show();
             var searchTerm = _searchTerm.toLowerCase(),
                 matchingTags = this.findMatchingTags(searchTerm),
                 styles = {
@@ -115,6 +114,9 @@
             this.$suggestions.html("");
 
             matchingTags = _.first(matchingTags, maxSuggestions);
+            if (matchingTags.length > 0) {
+                this.$suggestions.show();
+            }
             _.each(matchingTags, function (matchingTag) {
                 var highlightedName,
                     suggestionHTML;
@@ -130,9 +132,7 @@
 
         handleKeyup: function (e) {
             var $target = $(e.currentTarget),
-                searchTerm = $.trim($target.val()),
-                tag,
-                $selectedSuggestion;
+                searchTerm = $.trim($target.val());
 
             if (e.keyCode === this.keys.UP) {
                 e.preventDefault();
@@ -153,28 +153,6 @@
                     }
                 }
             } else if (e.keyCode === this.keys.ESC) {
-                this.$suggestions.hide();
-            } else if ((e.keyCode === this.keys.ENTER || e.keyCode === this.keys.COMMA) && searchTerm) {
-                // Submit tag using enter or comma key
-                e.preventDefault();
-
-                $selectedSuggestion = this.$suggestions.children(".selected");
-                if (this.$suggestions.is(":visible") && $selectedSuggestion.length !== 0) {
-
-                    if ($('.tag:containsExact("' + $selectedSuggestion.data('tag-name') + '")').length === 0) {
-                        tag = {id: $selectedSuggestion.data('tag-id'), name: $selectedSuggestion.data('tag-name')};
-                        this.addTag(tag);
-                    }
-                } else {
-                    if (e.keyCode === this.keys.COMMA) {
-                        searchTerm = searchTerm.replace(/,/g, "");
-                    }  // Remove comma from string if comma is used to submit.
-                    if ($('.tag:containsExact("' + searchTerm + '")').length === 0) {
-                        this.addTag({id: null, name: searchTerm});
-                    }
-                }
-                $target.val('').focus();
-                searchTerm = ""; // Used to reset search term
                 this.$suggestions.hide();
             }
 
@@ -199,6 +177,39 @@
                 lastBlock.remove();
                 tag = {id: lastBlock.data('tag-id'), name: lastBlock.text()};
                 this.model.removeTag(tag);
+            }
+        },
+
+        handleKeypress: function (e) {
+            var $target = $(e.currentTarget),
+                searchTerm = $.trim($target.val()),
+                tag,
+                $selectedSuggestion,
+                isComma = ",".localeCompare(String.fromCharCode(e.keyCode || e.charCode)) === 0;
+
+            // use localeCompare in case of international keyboard layout
+            if ((e.keyCode === this.keys.ENTER || isComma) && searchTerm) {
+                // Submit tag using enter or comma key
+                e.preventDefault();
+
+                $selectedSuggestion = this.$suggestions.children(".selected");
+                if (this.$suggestions.is(":visible") && $selectedSuggestion.length !== 0) {
+
+                    if ($('.tag:containsExact("' + $selectedSuggestion.data('tag-name') + '")').length === 0) {
+                        tag = {id: $selectedSuggestion.data('tag-id'), name: $selectedSuggestion.data('tag-name')};
+                        this.addTag(tag);
+                    }
+                } else {
+                    if (isComma) {
+                        searchTerm = searchTerm.replace(/,/g, "");
+                    }  // Remove comma from string if comma is used to submit.
+                    if ($('.tag:containsExact("' + searchTerm + '")').length === 0) {
+                        this.addTag({id: null, name: searchTerm});
+                    }
+                }
+                $target.val('').focus();
+                searchTerm = ""; // Used to reset search term
+                this.$suggestions.hide();
             }
         },
 

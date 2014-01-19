@@ -1,16 +1,15 @@
 
 var _           = require('underscore'),
     when        = require('when'),
-    ghostApi,
+    errors      = require('../errorHandling'),
+    api         = require('../api'),
     loader      = require('./loader'),
-    GhostPlugin = require('./GhostPlugin');
+    // Holds the available plugins
+    availablePlugins = {};
+
 
 function getInstalledPlugins() {
-    if (!ghostApi) {
-        ghostApi = require('../api');
-    }
-
-    return ghostApi.settings.read('installedPlugins').then(function (installed) {
+    return api.settings.read('installedPlugins').then(function (installed) {
         installed.value = installed.value || '[]';
 
         try {
@@ -27,14 +26,28 @@ function saveInstalledPlugins(installedPlugins) {
     return getInstalledPlugins().then(function (currentInstalledPlugins) {
         var updatedPluginsInstalled = _.uniq(installedPlugins.concat(currentInstalledPlugins));
 
-        return ghostApi.settings.edit('installedPlugins', updatedPluginsInstalled);
+        return api.settings.edit('installedPlugins', updatedPluginsInstalled);
     });
 }
 
 module.exports = {
-    GhostPlugin: GhostPlugin,
+    init: function () {
+        var pluginsToLoad;
 
-    init: function (ghost, pluginsToLoad) {
+        try {
+            // We have to parse the value because it's a string
+            api.settings.read('activePlugins').then(function (aPlugins) {
+                pluginsToLoad = JSON.parse(aPlugins.value) || [];
+            });
+        } catch (e) {
+            errors.logError(
+                'Failed to parse activePlugins setting value: ' + e.message,
+                'Your plugins will not be loaded.',
+                'Check your settings table for typos in the activePlugins value. It should look like: ["plugin-1", "plugin2"] (double quotes required).'
+            );
+            return when.resolve();
+        }
+
         // Grab all installed plugins, install any not already installed that are in pluginsToLoad.
         return getInstalledPlugins().then(function (installedPlugins) {
             var loadedPlugins = {},
@@ -47,14 +60,14 @@ module.exports = {
                 loadPromises = _.map(pluginsToLoad, function (plugin) {
                     // If already installed, just activate the plugin
                     if (_.contains(installedPlugins, plugin)) {
-                        return loader.activatePluginByName(plugin, ghost).then(function (loadedPlugin) {
+                        return loader.activatePluginByName(plugin).then(function (loadedPlugin) {
                             return recordLoadedPlugin(plugin, loadedPlugin);
                         });
                     }
 
                     // Install, then activate the plugin
-                    return loader.installPluginByName(plugin, ghost).then(function () {
-                        return loader.activatePluginByName(plugin, ghost);
+                    return loader.installPluginByName(plugin).then(function () {
+                        return loader.activatePluginByName(plugin);
                     }).then(function (loadedPlugin) {
                         return recordLoadedPlugin(plugin, loadedPlugin);
                     });
@@ -64,9 +77,16 @@ module.exports = {
                 // Save our installed plugins to settings
                 return saveInstalledPlugins(_.keys(loadedPlugins));
             }).then(function () {
-                // Return the hash of all loaded plugins
-                return when.resolve(loadedPlugins);
+                // Extend the loadedPlugins onto the available plugins
+                _.extend(availablePlugins, loadedPlugins);
+            }).otherwise(function (err) {
+                errors.logError(
+                    err.message || err,
+                    'The plugin will not be loaded',
+                    'Check with the plugin creator, or read the plugin documentation for more details on plugin requirements'
+                );
             });
         });
-    }
+    },
+    availablePlugins: availablePlugins
 };

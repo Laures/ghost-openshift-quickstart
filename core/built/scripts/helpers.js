@@ -2,6 +2,16 @@
 (function () {
     'use strict';
 
+    function ghostPaths() {
+        var path = window.location.pathname,
+            subdir = path.substr(0, path.search('/ghost/'));
+
+        return {
+            subdir: subdir,
+            apiRoot: subdir + '/ghost/api/v0.1'
+        };
+    }
+
     var Ghost = {
         Layout      : {},
         Views       : {},
@@ -9,9 +19,7 @@
         Models      : {},
         Validate    : new Validator(),
 
-        settings: {
-            apiRoot: '/api/v0.1'
-        },
+        paths: ghostPaths(),
 
         // This is a helper object to denote legacy things in the
         // middle of being transitioned.
@@ -33,7 +41,17 @@
         return Backbone.oldsync(method, model, options, error);
     };
 
+    Backbone.oldModelProtoUrl = Backbone.Model.prototype.url;
+    //overwrite original url method to add slash to end of the url if needed.
+    Backbone.Model.prototype.url = function () {
+        var url = Backbone.oldModelProtoUrl.apply(this, arguments);
+        return url + (url.charAt(url.length - 1) === '/' ? '' : '/');
+    };
+
     Ghost.init = function () {
+        // remove the temporary message which appears
+        $('.js-msg').remove();
+
         Ghost.router = new Ghost.Router();
 
         // This is needed so Backbone recognizes elements already rendered server side
@@ -43,7 +61,7 @@
         Backbone.history.start({
             pushState: true,
             hashChange: false,
-            root: '/ghost'
+            root: Ghost.paths.subdir + '/ghost'
         });
     };
 
@@ -70,6 +88,7 @@
 
     window.Ghost = Ghost;
 
+    window.addEventListener("load", Ghost.init, false);
 }());
 
 // # Ghost Mobile Interactions
@@ -141,7 +160,7 @@
     Ghost.temporary.hideToggles = function () {
         $('[data-toggle]').each(function () {
             var toggle = $(this).data('toggle');
-            $(this).parent().children(toggle + ':visible').fadeOut();
+            $(this).parent().children(toggle + ':visible').fadeOut(150);
         });
 
         // Toggle active classes on menu headers
@@ -167,7 +186,7 @@
 
             if (!isAlreadyActive) {
                 $this.toggleClass('active');
-                $(this).parent().children(toggle).toggleClass('open').fadeToggle(200);
+                $(this).parent().children(toggle).toggleClass('open').fadeToggle(150);
             }
         });
 
@@ -308,6 +327,13 @@
                 this.elem.replaceSelection(md, 'end');
                 pass = false;
                 break;
+            case 'newLine':
+                cursor = this.elem.getCursor();
+                if (this.elem.getLine(cursor.line) !== "") {
+                    this.elem.setLine(cursor.line, this.elem.getLine(cursor.line) + "\n\n");
+                }
+                pass = false;
+                break;
             default:
                 if (this.options.syntax[this.style]) {
                     md = this.options.syntax[this.style].replace('$1', text);
@@ -343,19 +369,56 @@
     };
 
 }());
-/*globals Handlebars, moment
-*/
+/*globals Handlebars, moment, Ghost */
 (function () {
     'use strict';
-    Handlebars.registerHelper('date', function (context, block) {
-        var f = block.hash.format || 'MMM Do, YYYY',
-            timeago = block.hash.timeago,
+    Handlebars.registerHelper('date', function (context, options) {
+        if (!options && context.hasOwnProperty('hash')) {
+            options = context;
+            context = undefined;
+
+            // set to published_at by default, if it's available
+            // otherwise, this will print the current date
+            if (this.published_at) {
+                context = this.published_at;
+            }
+        }
+
+        // ensure that context is undefined, not null, as that can cause errors
+        context = context === null ? undefined : context;
+
+        var f = options.hash.format || 'MMM Do, YYYY',
+            timeago = options.hash.timeago,
             date;
+
+
         if (timeago) {
             date = moment(context).fromNow();
         } else {
             date = moment(context).format(f);
         }
         return date;
+    });
+
+    Handlebars.registerHelper('adminUrl', function () {
+        return Ghost.paths.subdir + '/ghost';
+    });
+
+    Handlebars.registerHelper('asset', function (context, options) {
+        var output = '',
+            isAdmin = options && options.hash && options.hash.ghost;
+
+        output += Ghost.paths.subdir + '/';
+
+        if (!context.match(/^shared/)) {
+            if (isAdmin) {
+                output += 'ghost/';
+            } else {
+                output += 'assets/';
+            }
+        }
+
+        output += context;
+        return new Handlebars.SafeString(output);
     });
 }());

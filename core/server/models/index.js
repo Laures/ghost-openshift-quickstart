@@ -1,4 +1,5 @@
-var migrations = require('../data/migration');
+var migrations = require('../data/migration'),
+    _          = require('underscore');
 
 module.exports = {
     Post: require('./post').Post,
@@ -7,6 +8,9 @@ module.exports = {
     Permission: require('./permission').Permission,
     Settings: require('./settings').Settings,
     Tag: require('./tag').Tag,
+    Base: require('./base'),
+    Session: require('./session').Session,
+
     init: function () {
         return migrations.init();
     },
@@ -15,8 +19,21 @@ module.exports = {
             return migrations.init();
         });
     },
-    isPost: function (jsonData) {
-        return jsonData.hasOwnProperty('html') && jsonData.hasOwnProperty('markdown')
-            && jsonData.hasOwnProperty('title') && jsonData.hasOwnProperty('slug');
+    // ### deleteAllContent
+    // Delete all content from the database (posts, tags, tags_posts)
+    deleteAllContent: function () {
+        var self = this;
+
+        return self.Post.browse().then(function (posts) {
+            _.each(posts.toJSON(), function (post) {
+                self.Post.destroy(post.id);
+            });
+        }).then(function () {
+            self.Tag.browse().then(function (tags) {
+                _.each(tags.toJSON(), function (tag) {
+                    self.Tag.destroy(tag.id);
+                });
+            });
+        });
     }
 };

@@ -16,6 +16,7 @@
      * @returns {boolean}
      */
     $.expr[":"].containsExact = function (obj, index, meta, stack) {
+        /*jslint unparam:true*/
         return (obj.textContent || obj.innerText || $(obj).text() || "") === meta[3];
     };
 
@@ -63,20 +64,20 @@
         }
 
         // check the vendor transition duration properties
-        if (this.css('-webkit-transtion-duration')) {
-            return Math.round(parseFloat(this.css('-webkit-transtion-duration')) * 1000);
+        if (this.css('-webkit-transition-duration')) {
+            return Math.round(parseFloat(this.css('-webkit-transition-duration')) * 1000);
         }
 
-        if (this.css('-ms-transtion-duration')) {
-            return Math.round(parseFloat(this.css('-ms-transtion-duration')) * 1000);
-        }
-        
-        if (this.css('-moz-transtion-duration')) {
-            return Math.round(parseFloat(this.css('-moz-transtion-duration')) * 1000);
+        if (this.css('-ms-transition-duration')) {
+            return Math.round(parseFloat(this.css('-ms-transition-duration')) * 1000);
         }
 
-        if (this.css('-o-transtion-duration')) {
-            return Math.round(parseFloat(this.css('-o-transtion-duration')) * 1000);
+        if (this.css('-moz-transition-duration')) {
+            return Math.round(parseFloat(this.css('-moz-transition-duration')) * 1000);
+        }
+
+        if (this.css('-o-transition-duration')) {
+            return Math.round(parseFloat(this.css('-o-transition-duration')) * 1000);
         }
 
         // if we're here, then no transition duration was found, return 0
@@ -143,7 +144,7 @@
                 if (callback) {
                     callback($("body").find(hideClass + ":visible"));
                 } else {
-                    $("body").find(hideClass + ":visible").fadeOut();
+                    $("body").find(hideClass + ":visible").fadeOut(150);
 
                     // Toggle active classes on menu headers
                     $("[data-toggle].active").removeClass("active");
@@ -161,12 +162,12 @@
     /**
      * Adds appropriate inflection for pluralizing the singular form of a word when appropriate.
      * This is an overly simplistic implementation that does not handle irregular plurals.
-     * @param {Number} count 
+     * @param {Number} count
      * @param {String} singularWord
      * @returns {String}
      */
     $.pluralize = function inflect(count, singularWord) {
-    	var base = [count, ' ', singularWord];
+        var base = [count, ' ', singularWord];
 
         return (count === 1) ? base.join('') : base.concat('s').join('');
     };

@@ -13,11 +13,11 @@
 		<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1">
 		<meta name="apple-mobile-web-app-capable" content="yes" />
 
-		<link rel="shortcut icon" href="/favicon.ico">
+		<link rel="shortcut icon" href="{{asset "favicon.ico"}}">
 		<meta http-equiv="cleartype" content="on">
 
-		<link rel="stylesheet" type='text/css' href='http://fonts.googleapis.com/css?family=Open+Sans:400,300,700'>
-		<link rel="stylesheet" href="/ghost/css/screen.css">
+		<link rel="stylesheet" type='text/css' href='//fonts.googleapis.com/css?family=Open+Sans:400,300,700'>
+		<link rel="stylesheet" href="{{asset "css/screen.css" ghost="true"}}">
 		{{{block "pageStyles"}}}
 	</head>
 	<body class="{{bodyClass}}">
@@ -27,8 +27,8 @@
 					<figure class="error-image">
 						<img
 							class="error-ghost"
-							src="/ghost/img/404-ghost@2x.png"
-							srcset="/ghost/img/404-ghost.png 1x, /ghost/img/404-ghost@2x.png 2x"/>
+							src="{{asset "img/404-ghost@2x.png" ghost="true"}}"
+							srcset="{{asset "img/404-ghost.png" ghost="true"}} 1x, {{asset "img/404-ghost@2x.png" ghost="true"}} 2x"/>
 					</figure>
 					<section class="error-message">
 						<h1 class="error-code">{{code}}</h1>

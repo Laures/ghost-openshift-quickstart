@@ -2,7 +2,7 @@
 (function () {
     'use strict';
 
-    Ghost.Models.Post = Backbone.Model.extend({
+    Ghost.Models.Post = Ghost.ProgressModel.extend({
 
         defaults: {
             status: 'draft'
@@ -12,8 +12,8 @@
 
         parse: function (resp) {
             if (resp.status) {
-                resp.published = !!(resp.status === 'published');
-                resp.draft = !!(resp.status === 'draft');
+                resp.published = resp.status === 'published';
+                resp.draft = resp.status === 'draft';
             }
             if (resp.tags) {
                 // TODO: parse tags into it's own collection on the model (this.tags)
@@ -50,7 +50,7 @@
         nextPage: 0,
         prevPage: 0,
 
-        url: Ghost.settings.apiRoot + '/posts/',
+        url: Ghost.paths.apiRoot + '/posts/',
         model: Ghost.Models.Post,
 
         parse: function (resp) {

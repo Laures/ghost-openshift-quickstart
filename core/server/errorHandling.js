@@ -1,22 +1,28 @@
 /*jslint regexp: true */
-var _      = require('underscore'),
-    colors = require('colors'),
-    fs     = require('fs'),
-    path   = require('path'),
+var _           = require('underscore'),
+    colors      = require('colors'),
+    fs          = require('fs'),
+    configPaths = require('./config/paths'),
+    path        = require('path'),
+    when        = require('when'),
     errors,
 
     // Paths for views
-    appRoot                  = path.resolve(__dirname, '../'),
-    themePath                = path.resolve(appRoot + '/content/themes'),
-    adminTemplatePath        = path.resolve(appRoot + '/server/views/'),
-    defaultErrorTemplatePath = path.resolve(adminTemplatePath + '/user-error.hbs'),
-    userErrorTemplatePath    = path.resolve(themePath + '/error.hbs'),
-    userErrorTemplateExists;
+    defaultErrorTemplatePath = path.resolve(configPaths().adminViews, 'user-error.hbs'),
+    userErrorTemplatePath    = path.resolve(configPaths().themePath, 'error.hbs'),
+    userErrorTemplateExists   = false,
+
+    ONE_HOUR_S  = 60 * 60;
 
 /**
  * Basic error handling helpers
  */
 errors = {
+    updateActiveTheme: function (activeTheme, hasErrorTemplate) {
+        userErrorTemplatePath = path.resolve(configPaths().themePath, activeTheme, 'error.hbs');
+        userErrorTemplateExists = hasErrorTemplate;
+    },
+
     throwError: function (err) {
         if (!err) {
             err = new Error("An error occurred");
@@ -27,6 +33,12 @@ errors = {
         }
 
         throw err;
+    },
+
+    // ## Reject Error
+    // Used to pass through promise errors when we want to handle them at a later time
+    rejectError: function (err) {
+        return when.reject(err);
     },
 
     logWarn: function (warn, context, help) {
@@ -51,7 +63,11 @@ errors = {
 
     logError: function (err, context, help) {
         var stack = err ? err.stack : null;
-        err = err.message || err || 'Unknown';
+        if (err) {
+            err = err.message || err || 'An unknown error occurred.';
+        } else {
+            err = 'An unknown error occurred.';
+        }
         // TODO: Logging framework hookup
         // Eventually we'll have better logging which will know about envs
         if ((process.env.NODE_ENV === 'development' ||
@@ -90,6 +106,7 @@ errors = {
     },
 
     logErrorWithRedirect: function (msg, context, help, redirectTo, req, res) {
+        /*jslint unparam:true*/
         var self = this;
 
         return function () {
@@ -102,9 +119,10 @@ errors = {
     },
 
     renderErrorPage: function (code, err, req, res, next) {
+        /*jslint unparam:true*/
 
         function parseStack(stack) {
-            if (typeof stack !== 'string') {
+            if (!_.isString(stack)) {
                 return stack;
             }
 
@@ -141,7 +159,7 @@ errors = {
             }
 
             // TODO: Attach node-polyglot
-            res.render((errorView || 'error'), {
+            res.status(code).render((errorView || 'error'), {
                 message: err.message || err,
                 code: code,
                 stack: stack
@@ -158,25 +176,14 @@ errors = {
         }
 
         // We're not admin and the template doesn't exist. Render the default.
-        if (userErrorTemplateExists === false) {
-            return renderErrorInt(defaultErrorTemplatePath);
-        }
-
-        // userErrorTemplateExists is undefined, which means we
-        // haven't yet checked for it. Do so now!
-        fs.stat(userErrorTemplatePath, function (err, stat) {
-            userErrorTemplateExists = !err;
-            if (userErrorTemplateExists) {
-                return renderErrorInt();
-            }
-
-            renderErrorInt(defaultErrorTemplatePath);
-        });
+        return renderErrorInt(defaultErrorTemplatePath);
     },
 
     error404: function (req, res, next) {
         var message = res.isAdmin && req.session.user ? "No Ghost Found" : "Page Not Found";
 
+        // 404 errors should be briefly cached
+        res.set({'Cache-Control': 'public, max-age=' + ONE_HOUR_S});
         if (req.method === 'GET') {
             this.renderErrorPage(404, message, req, res, next);
         } else {
@@ -185,13 +192,20 @@ errors = {
     },
 
     error500: function (err, req, res, next) {
+        // 500 errors should never be cached
+        res.set({'Cache-Control': 'no-cache, private, no-store, must-revalidate, max-stale=0, post-check=0, pre-check=0'});
+
+        if (err.status === 404) {
+            return this.error404(req, res, next);
+        }
+
         if (req.method === 'GET') {
             if (!err || !(err instanceof Error)) {
                 next();
             }
-            errors.renderErrorPage(500, err, req, res, next);
+            errors.renderErrorPage(err.status || 500, err, req, res, next);
         } else {
-            res.send(500, err);
+            res.send(err.status || 500, err);
         }
     }
 };
